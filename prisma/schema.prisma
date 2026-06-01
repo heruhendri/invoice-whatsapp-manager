@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+}
+
+enum DeliveryChannel {
+  WHATSAPP
+}
+
+enum DeliveryStatus {
+  SUCCESS
+  FAILED
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String?
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoices Invoice[]
+}
+
+model Invoice {
+  id        Int           @id @default(autoincrement())
+  invoiceNo String        @unique
+  issueDate DateTime
+  dueDate   DateTime
+  status    InvoiceStatus @default(DRAFT)
+
+  // Snapshot customer info at creation time
+  customerName    String
+  customerAddress String?
+  customerPhone   String?
+  customerEmail   String?
+
+  // Totals in smallest unit (IDR)
+  subtotal Int
+  discount Int @default(0)
+  tax      Int @default(0)
+  total    Int
+
+  paymentBankName      String?
+  paymentAccountNumber String?
+  paymentAccountName   String?
+
+  notes String?
+
+  sentAt     DateTime?
+  lastSentAt DateTime?
+  paidAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerId Int?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  items         InvoiceItem[]
+  deliveryLogs  InvoiceDeliveryLog[]
+
+  @@index([dueDate])
+  @@index([status])
+  @@index([customerId])
+}
+
+model InvoiceItem {
+  id        Int    @id @default(autoincrement())
+  invoiceId Int
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  description String
+  qty         Int
+  unitPrice   Int
+  lineTotal   Int
+}
+
+model InvoiceDeliveryLog {
+  id        Int            @id @default(autoincrement())
+  invoiceId Int
+  invoice   Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  channel DeliveryChannel
+  status  DeliveryStatus
+  detail  String?          @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId, createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
